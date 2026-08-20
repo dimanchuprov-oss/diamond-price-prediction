@@ -59,7 +59,7 @@
 
 1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com
+   git clone https://github.com/dimanchuprov-oss/diamond-price-prediction
    ```
 2. Установите зависимости:
    ```bash
