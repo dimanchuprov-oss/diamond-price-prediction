@@ -47,3 +47,48 @@ df_cleaned = pd.concat([df_one, df_three]).reset_index(drop=True)
 
 print(f"Размер датасета после очистки повторов и аномалий: {df_cleaned.shape}")
 df_cleaned.head()
+
+print("\n--- Расчет коэффициентов инфляции ---")
+
+# Обычно инфляция на алмазном рынке сильнее всего зависит от веса (carat) или цвета/чистоты.
+# Создадим простую категорию веса, например, округлив караты до 1 знака, 
+# чтобы группы не были слишком мелкими, и добавим качественные параметры.
+df_cleaned['carat_group'] = df_cleaned['carat'].round(1)
+categories = ['carat_group', 'cut', 'color']
+
+# 2. Считаем среднюю цену за карат для каждой группы в каждом месяце
+df_index = df_cleaned.groupby(['date'] + categories)['price_per_carat'].mean().reset_index()
+
+# 3. Находим максимальную (последнюю доступную) дату в датасете
+date_max = df_index['date'].max()
+print(f"Базовый месяц для расчета инфляции: {date_max}")
+
+# 4. Выделяем цены на эту максимальную дату, чтобы сделать их базой (знаменателем)
+df_base_prices = df_index.query('date == @date_max')[categories + ['price_per_carat']].copy()
+df_base_prices = df_base_prices.rename(columns={'price_per_carat': 'price_per_carat_max'})
+
+# 5. Объединяем базовые цены с историческим индексом
+df_index = df_index.merge(df_base_prices, on=categories, how='outer')
+
+# 6. Считаем коэффициент инфляции (отношение базовой цены к цене в конкретном месяце)
+# Если в какой-то группе на максимальную дату данных не было, заполняем коэффициент единицей (1.0)
+df_index['inflation'] = df_index['price_per_carat_max'] / df_index['price_per_carat']
+df_index['inflation'] = df_index['inflation'].fillna(1.0)
+
+# 7. Объединяем полученные коэффициенты инфляции с нашей основной очищенной таблицей
+df_with_inf = df_cleaned.merge(df_index[['date'] + categories + ['inflation']], on=['date'] + categories, how='left')
+
+# 8. Создаем скорректированную целевую переменную
+df_with_inf['price_per_carat_adjusted'] = df_with_inf['price_per_carat'] * df_with_inf['inflation']
+
+# Удаляем временную колонку группы каратов, чтобы не засорять датасет
+df_final = df_with_inf.drop(columns=['carat_group'])
+
+print(f"Расчет завершен. Итоговый размер таблицы с инфляцией: {df_final.shape}")
+print("Пример скорректированных цен:")
+print(df_final[['date', 'price_per_carat', 'inflation', 'price_per_carat_adjusted']].head())
+
+# Сохраняем очищенный датасет в новый файл, чтобы ноутбук моделирования мог его прочитать
+output_path = os.path.join(project_root, 'data', 'diamonds_cleaned.csv')
+df_final.to_csv(output_path, index=False)
+print(f"Очищенные данные сохранены в: {output_path}")
