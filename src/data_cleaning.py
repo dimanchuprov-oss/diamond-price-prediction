@@ -8,7 +8,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__)) # папка src
 project_root = os.path.dirname(current_dir)             # корень проекта
 data_path = os.path.join(project_root, 'data', 'diamonds.csv')
 
-# Читаем файл по точному железному пути
 df = pd.read_csv(data_path)
 print(f"Исходный размер датасета: {df.shape}")
 
